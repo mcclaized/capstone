@@ -9,16 +9,16 @@ Due Feb:
 - Exploratory data analysis and visualization - Due Feb 22
 
 Due March:
-Design the initial prototype, Supervised modeling (recommendation) - Due March 8
-First progress report - Due Mar 25
+- Design the initial prototype, Supervised modeling (recommendation) - Due March 8
+- First progress report - Due Mar 25
 
 Due April:
-In-depth modeling and algorithms (recommendation) - Due Apr 5
-Model accuracy, tuning and comparison (recommendation) - Due Apr 19
-Algorithms to find cheap and rich bonds based on recommendation - Due Apr 26
-Second progress report - Due Apr 30
+- In-depth modeling and algorithms (recommendation) - Due Apr 5
+- Model accuracy, tuning and comparison (recommendation) - Due Apr 19
+- Algorithms to find cheap and rich bonds based on recommendation - Due Apr 26
+- Second progress report - Due Apr 30
 
 Due May:
-Building UI - Due May 9
-Final presentation - Due May 9
-Final Report - Due May 13
+- Building UI - Due May 9
+- Final presentation - Due May 9
+- Final Report - Due May 13
