@@ -4,11 +4,8 @@ Project timeline:
 
 Due Feb:
 Project planning and scoping, establish logistics - Due Feb 8
-
 Receive essential data, set up the working environments- Due Feb 15
-
 Data cleaning - Due Feb 22
-
 Exploratory data analysis and visualization - Due Feb 22
 
 Due March:
