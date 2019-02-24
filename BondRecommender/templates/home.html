@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>home</title>
+    <style>
+        body{
+            font-family: monospace, sans-serif;
+            font-size: 1em;
+            color: dimgray;
+        }
+        h1 {
+            font-size: 1.5em;
+        }
+        h2 {
+            font-size: 1.2em;
+            color: red;
+        }
+    </style>
+</head>
+<body>
+<h1>Bond Recommender</h1>
+{% if sec_id_error == 1 %}
+    <h2>{{ sec_id }} is not a valid ISIN. Enter a valid ISIN.</h2>
+{% endif %}
+<form action="{% url 'results' %}" method="get">
+    Enter an ISIN:
+    <input id="sec_id" name="sec_id" value="" size="15">
+    <input name="submit" value="Get Similar Bonds" type="submit">
+</form>
+</body>
+</html>

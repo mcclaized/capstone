@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Results</title>
+    <style>
+        body{
+            font-family: monospace, Futura, sans-serif;
+            font-size: 1em;
+            color: dimgray;
+        }
+        h1 {
+            font-size: 1.5em;
+        }
+        table, th, td {
+            text-align: center;
+            padding: 8px;
+            border: 2px solid dimgrey;
+            border-collapse: collapse;
+        }
+    </style>
+</head>
+<body>
+    <form action="{% url 'home' %}" method="get">
+        <input name="home" value="Home" type="submit">
+    </form>
+    <h1>The List of Similar Bonds for {{ sec_id }} is:</h1>
+    <table class="table-style">
+        <tr class="table-style">
+            <th class="table-style"> isin </th>
+            <th class="table-style"> Levenshtein distance </th>
+        </tr>
+        {% for s in similar_bonds %}
+            <tr class="table-style">
+                <td class="table-style">{{ s.0 }} </td>
+                <td class="table-style" align="center">{{ s.1 }} </td>
+            </tr>
+        {% endfor %}
+    </table><br>
+</body>
+</html>
