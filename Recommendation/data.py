@@ -2,11 +2,14 @@ import os
 
 import pandas as pd
 
-DATA_DIR=os.getenv('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath((__file__)))), 'data'))
+DATA_DIR=os.getenv(
+    'DATA_DIR', 
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath((__file__)))), 'data')
+)
 
 class SingleDayDataLoader(object):
     """
-    This class loads one days worht of data from the vanguard data-set
+    This class loads one days worth of data from the vanguard data-set
     """
 
     PATH = os.path.join(DATA_DIR, 'vanguard_merge_sample.csv')
