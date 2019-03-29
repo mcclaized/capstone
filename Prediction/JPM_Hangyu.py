@@ -29,7 +29,7 @@ def evaluate_criterion(premiums, today, include_info=False):
     info = pd.merge(info_today, info, on='ISIN', how='inner')
 
     info['range'] = info.amax - info.amin
-    info['percentile'] = (info.premium - info.amin)/info.range
+    info['percentile'] = (info.premium - info.amin) / info.range
 
     info['range_ind'] = (info.range >= 10)
     info['cheap_ind'] = (info.percentile > 0.95)
@@ -50,110 +50,115 @@ def evaluate_criterion(premiums, today, include_info=False):
     return cheap, rich
 
 
-# def predict(alldata, today):
-# extract today's data
-cr = all[all.date == today]
+def predict(alldata, today, lookback):
+    # extract today's data
+    cr = all[all.date == today]
 
-# extract data of last 30 days
-dates = np.sort(np.unique(all.date))
-today_ind = np.where(dates == today)[0][0]
-today_ind
-today = dates[today_ind - 1]
-last30_dates = dates[(today_ind - 3):(today_ind)]
-last30 = all[all.date.isin(last30_dates)]
+    # extract data of last 30 days
+    dates = np.sort(np.unique(all.date))
+    today_ind = np.where(dates == today)[0][0]
+    yesterday = dates[today_ind - 1]
+    last30_dates = dates[(today_ind - lookback):(today_ind)]
+    last30 = all[all.date.isin(last30_dates)]
 
-# reset columns indices
-cr.reset_index(drop=True, inplace=True)
-last30.reset_index(drop=True, inplace=True)
+    # reset columns indices
+    cr.reset_index(drop=True, inplace=True)
+    last30.reset_index(drop=True, inplace=True)
 
-# calculate short-term factor and long-term factor for each ISIN in last30
-yrtm = last30.yrtm
-last30['short_factor'] = (1 - np.exp(-.2 * yrtm)) / yrtm
-last30['long_factor'] = (1 - np.exp(-.1 * yrtm)) / yrtm
+    # calculate short-term factor and long-term factor for each ISIN in last30
+    yrtm = last30.yrtm
+    last30['short_factor'] = (1 - np.exp(-.2 * yrtm)) / yrtm
+    last30['long_factor'] = (1 - np.exp(-.1 * yrtm)) / yrtm
 
-# calculate premiums based on spread, and evaluate the first criterion
-premiums_spd = last30[['date', 'ISIN', 'oas', 'ticker', 'sector', 'rating']]
-premiums_spd.columns = ['date', 'ISIN', 'premium', 'ticker', 'sector', 'rating']
+    # calculate premiums based on spread, and evaluate the first criterion
+    premiums_spd = last30[['date', 'ISIN', 'oas', 'ticker', 'sector', 'rating']]
+    premiums_spd.columns = ['date', 'ISIN', 'premium', 'ticker', 'sector', 'rating']
 
+    cheap_spd, rich_spd = evaluate_criterion(premiums_spd, yesterday, include_info=True)
 
-cheap_spd, rich_spd = evaluate_criterion(premiums_spd, today, include_info=True)
+    # get the list of tickers and sector_ratings of bonds which satisfy the first criterion
 
-# calculate premiums w.r.t. issuer curve
-premiums_t = pd.DataFrame(columns=['date', 'ISIN', 'premium'])
+    tickers = (set(cheap_spd.ticker) | set(rich_spd.ticker))
+    sector_ratings = (set(cheap_spd.sector_rating) | set(rich_spd.sector_rating))
 
-tickers = (set(cheap_spd.ISIN) | set(rich_spd.ISIN))
+    # drop the ticker and sector_rating columns
 
+    cheap_spd = cheap_spd[['ISIN', 'percentile', 'cheap_ind']]
+    rich_spd = rich_spd[['ISIN', 'percentile', 'rich_ind']]
 
-for d in last30_dates:
-    one_d = last30[last30.date == d]
+    # calculate premiums w.r.t. issuer curve, and evaluate the second criterion
+    premiums_t = pd.DataFrame(columns=['date', 'ISIN', 'premium'])
 
-    for t in tickers:
-        one_dt = one_d[one_d.ticker == t]
+    for d in last30_dates:
+        one_d = last30[last30.date == d]
 
-        if one_dt.shape[0] >= 6:
-            one_dt['premium'] = calculate_premium(one_dt)
+        for t in tickers:
+            one_dt = one_d[one_d.ticker == t]
 
-            premiums_t = premiums_t.append(one_dt[['date', 'ISIN', 'premium']])
+            if one_dt.shape[0] >= 6:
+                one_dt['premium'] = calculate_premium(one_dt)
 
-# calculate premium w.r.t. sector_rating curve
-premiums_sr = pd.DataFrame(columns=['date', 'ISIN', 'premium'])
+                premiums_t = premiums_t.append(one_dt[['date', 'ISIN', 'premium']])
 
-sector_ratings = (set(cheap_spd.sector_rating) | set(rich_spd.sector_rating))
+    cheap_t, rich_t = evaluate_criterion(premiums_t, yesterday)
 
-for d in last30_dates:
-    one_d = last30[last30.date == d]
-    one_d['sector_rating'] = one_d.sector + one_d.rating.astype(str)
-    for s in sector_ratings:
-        one_dsr = one_d[one_d.sector_rating == s]
+    # calculate premium w.r.t. sector_rating curve, and evaluate the third criterion
+    premiums_sr = pd.DataFrame(columns=['date', 'ISIN', 'premium'])
 
-        if one_dsr.shape[0] >= 6:
-            one_dsr['premium'] = calculate_premium(one_dsr)
+    for d in last30_dates:
+        one_d = last30[last30.date == d]
+        one_d['sector_rating'] = one_d.sector + one_d.rating.astype(str)
 
-            premiums_sr = premiums_sr.append(one_dsr[['date', 'ISIN', 'premium']])
+        for s in sector_ratings:
+            one_dsr = one_d[one_d.sector_rating == s]
 
-# calculate cheap/rich bonds for each criterion
+            if one_dsr.shape[0] >= 6:
+                one_dsr['premium'] = calculate_premium(one_dsr)
 
-cheap_t, rich_t = evaluate_criterion(premiums_t, today)
-cheap_sr, rich_sr = evaluate_criterion(premiums_sr, today)
+                premiums_sr = premiums_sr.append(one_dsr[['date', 'ISIN', 'premium']])
 
+    cheap_sr, rich_sr = evaluate_criterion(premiums_sr, yesterday)
 
-# rename columns to prepare for merge
-cheap_spd.rename(columns={'cheap_ind': 'spd_ind', 'percentile': 'spd_percentile'},
-                 inplace=True)
-rich_spd.rename(columns={'rich_ind': 'spd_ind', 'percentile': 'spd_percentile'},
-                inplace=True)
-cheap_t.rename(columns={'cheap_ind': 't_ind', 'percentile': 't_percentile'},
-               inplace=True)
-rich_t.rename(columns={'rich_ind': 't_ind', 'percentile': 't_percentile'},
-              inplace=True)
-cheap_sr.rename(columns={'cheap_ind': 'sr_ind', 'percentile': 'sr_percentile'},
-                inplace=True)
-rich_sr.rename(columns={'rich_ind': 'sr_ind', 'percentile': 'sr_percentile'},
-               inplace=True)
+    # rename columns to prepare for merge
+    cheap_spd.rename(columns={'cheap_ind': 'spd_ind', 'percentile': 'spd_percentile'},
+                     inplace=True)
+    rich_spd.rename(columns={'rich_ind': 'spd_ind', 'percentile': 'spd_percentile'},
+                    inplace=True)
+    cheap_t.rename(columns={'cheap_ind': 't_ind', 'percentile': 't_percentile'},
+                   inplace=True)
+    rich_t.rename(columns={'rich_ind': 't_ind', 'percentile': 't_percentile'},
+                  inplace=True)
+    cheap_sr.rename(columns={'cheap_ind': 'sr_ind', 'percentile': 'sr_percentile'},
+                    inplace=True)
+    rich_sr.rename(columns={'rich_ind': 'sr_ind', 'percentile': 'sr_percentile'},
+                   inplace=True)
 
-# merge cheap/rich bonds
-cheap = cheap_spd.merge(cheap_t, on='ISIN', how='left').merge(
-    cheap_sr, on='ISIN', how='left')
-rich = rich_spd.merge(rich_t, on='ISIN', how='left').merge(
-    rich_sr, on='ISIN', how='left')
+    # merge cheap/rich bonds
+    cheap = cheap_spd.merge(cheap_t, on='ISIN', how='left').merge(
+        cheap_sr, on='ISIN', how='left')
+    rich = rich_spd.merge(rich_t, on='ISIN', how='left').merge(
+        rich_sr, on='ISIN', how='left')
 
-# change null values to false in the indicator columns
-cheap[['t_ind', 'sr_ind']] = cheap[['t_ind', 'sr_ind']].fillna(False)
-rich[['t_ind', 'sr_ind']] = rich[['t_ind', 'sr_ind']].fillna(False)
+    # change null values to false in the indicator columns
+    cheap[['t_ind', 'sr_ind']] = cheap[['t_ind', 'sr_ind']].fillna(False)
+    rich[['t_ind', 'sr_ind']] = rich[['t_ind', 'sr_ind']].fillna(False)
 
-# calculate the scores to prepare for filtering and ranking
-cheap['score'] = cheap.t_ind * 1 + cheap.sr_ind * 1
-rich['score'] = rich.t_ind * 1 + rich.sr_ind * 1
+    # calculate the scores to prepare for filtering and ranking
+    cheap['score'] = cheap.t_ind * 1 + cheap.sr_ind * 1
+    rich['score'] = rich.t_ind * 1 + rich.sr_ind * 1
 
-# drop the bonds which satisfy neither ticker and sector criterion
-cheap = cheap[cheap.score > 0]
-rich = rich[rich.score > 0]
+    # drop the bonds which satisfy neither ticker and sector criterion
+    cheap = cheap[cheap.score > 0]
+    rich = rich[rich.score > 0]
 
-# rank bonds
-cheap.sort_values(by=['score', 'spd_percentile'], ascending=False, inplace=True)
-rich.sort_values(by=['score', 'spd_percentile'], ascending=False, inplace=True)
+    # rank bonds
+    cheap.sort_values(by=['score', 'spd_percentile'], ascending=False, inplace=True)
+    rich.sort_values(by=['score', 'spd_percentile'], ascending=False, inplace=True)
 
-return cheap, rich
+    cheap.reset_index(drop=True, inplace=True)
+    rich.reset_index(drop=True, inplace=True)
+
+    return cheap, rich
 
 # ------------------------ Read and clean data -------------------------
 
@@ -170,16 +175,18 @@ all = all.dropna()
 
 # -------------------------- Calculate results ----------------------------
 
-# cheap, rich = predict(all, '2019-03-07')
+cheap, rich = predict(all, '2019-03-07', 31)
 
-today = '2019-03-07'
-elin = pd.read_csv('elin_gspd.csv', index_col=0)
 
-elin
+cheap.shape
+rich.shape
 
-len(set(cheap_spd.ISIN) & set(elin['cheap']))
-len(set(rich_spd.ISIN) & set(elin['rich']))
-list = [e for e in cheap_spd.ISIN if (e not in set(elin['cheap']))]
-list
-
-cheap_spd[cheap_spd.ISIN == 'US084664CR08']
+# today = '2019-03-07'
+# elin = pd.read_csv('elin_gspd.csv', index_col=0)
+#
+# elin
+#
+# len(set(cheap_spd.ISIN) & set(elin['cheap']))
+# len(set(rich_spd.ISIN) & set(elin['rich']))
+# list = [e for e in cheap_spd.ISIN if (e not in set(elin['cheap']))]
+# list
