@@ -1,41 +1,54 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Results</title>
-    <style>
-        body{
-            font-family: monospace, Futura, sans-serif;
-            font-size: 1em;
-            color: dimgray;
-        }
-        h1 {
-            font-size: 1.5em;
-        }
-        table, th, td {
-            text-align: center;
-            padding: 8px;
-            border: 2px solid dimgrey;
-            border-collapse: collapse;
-        }
-    </style>
-</head>
-<body>
-    <form action="{% url 'home' %}" method="get">
-        <input name="home" value="Home" type="submit">
-    </form>
-    <h1>The List of Similar Bonds for {{ sec_id }} is:</h1>
-    <table class="table-style">
-        <tr class="table-style">
-            <th class="table-style"> isin </th>
-            <th class="table-style"> Levenshtein distance </th>
-        </tr>
-        {% for s in similar_bonds %}
-            <tr class="table-style">
-                <td class="table-style">{{ s.0 }} </td>
-                <td class="table-style" align="center">{{ s.1 }} </td>
+{% extends 'base.html' %}
+{% block content %}
+    <div class="col-md-8">
+        <h2>Searching for bonds that are similar to {{ sec_id }}, which characteristics is as follows</h2>
+        <table class="table table-striped">
+        <thead>
+            <tr>
+                {% for d in display_columns %}
+                    <th class="table"> {{ d }} </th>
+                {% endfor %}
             </tr>
-        {% endfor %}
-    </table><br>
-</body>
-</html>
+        </thead>
+        <tbody>
+            {% for b in bond_table %}
+                <tr>
+                    {% for bb in b %}
+                        {% if bb == b.0 %}
+                            <td><a href={{ bb }}> {{ bb }} </a></td>
+                        {% else %}
+                            <td> {{ bb }} </td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+        </table><br>
+        <h2>The List of Similar Bonds for {{ sec_id }} is:</h2>
+        <table class="table table-striped">
+        <thead>
+            <tr>
+                {% for d in display_columns %}
+                    <th> {{ d }} </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in similar_bonds_table %}
+                <tr>
+                    {% for ss in s %}
+                        {% if ss == s.0 %}
+                            <td><a href={{ ss }}> {{ ss }} </a></td>
+                        {% else %}
+                            <td> {{ ss }} </td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+    <div class="col-md-4">
+        <img src="/results/charts/view_plot_oas.png" alt="">
+    </div>
+{% endblock %}
