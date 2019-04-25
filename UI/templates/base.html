@@ -6,13 +6,17 @@
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css">
     <link rel="stylesheet" href="{% static 'BondRecommender/BondRecommenderStyle.css' %}">
+    <script src="//code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+{#    <link href='//fonts.googleapis.com/css?family=Lobster&subset=latin,latin-ext' rel='stylesheet' type='text/css'>#}
     <script src="//cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js"></script>
     <script src="{% static 'BondRecommender/draw_charts.js' %}"></script>
 </head>
 <body>
     <!-- header -->
     <nav class="navbar navbar-default navbar-fixed-top">
-        <a href="#" class="navbar-left"><img src={% static "BondRecommender/columbia_vanguard_logo.png" %} height="50" width="150"></a>
+{#        <a href="#" class="navbar-left"><img src={% static "BondRecommender/bond_recommender_logo.png" %} height="80" width="160"></a>#}
+        <a href="../" class="navbar-left"><img src={% static "BondRecommender/columbia_vanguard_logo.png" %} height="50" width="150"></a>
       <div class="container">
         <div class="navbar-header">
           <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
@@ -21,10 +25,26 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
+{#            <a class="navbar-brand">Bond Recommender</a>#}
+{#            <a><img class="logo logo-dark" alt="Logo" src={% static "BondRecommender/bond_recommender_logo.png" %} height="80" width="160"></a>#}
         </div>
         <div id="navbar" class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
-            <li><a href="../">Home</a></li>
+{#            <li><a href="../">Home</a></li>#}
+{#            <li><a href="#about">About</a></li>#}
+{#            <li><a href="#contact">Contact</a></li>#}
+{#            <li class="dropdown">#}
+{#              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">Dropdown <span class="caret"></span></a>#}
+{#              <ul class="dropdown-menu" role="menu">#}
+{#                <li><a href="#">Action</a></li>#}
+{#                <li><a href="#">Another action</a></li>#}
+{#                <li><a href="#">Something else here</a></li>#}
+{#                <li class="divider"></li>#}
+{#                <li class="dropdown-header">Nav header</li>#}
+{#                <li><a href="#">Separated link</a></li>#}
+{#                <li><a href="#">One more separated link</a></li>#}
+{#              </ul>#}
+{#            </li>#}
           </ul>
         </div><!--/.nav-collapse -->
       </div>
@@ -34,7 +54,6 @@
             {% block content %}
             {% endblock %}
         </div>
-        <canvas id="myChart"></canvas>
     </div></br>
     <!-- footer -->
     <footer class="footer">
