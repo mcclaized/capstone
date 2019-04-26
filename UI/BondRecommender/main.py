@@ -54,7 +54,7 @@ if __name__ == '__main__':
     features = ["OAS", "OAD", "KRD 5Y", "KRD 10Y", "KRD 20Y", "KRD 30Y"]
 
     ## COLUMNS TO DISPLAY IN THE CLI OUTPUT
-    display_columns = ['Ticker', 'BCLASS3', 'Country']  + (features or [])
+    display_columns = ['Ticker', 'BCLASS3', 'Country'] + (features or [])
 
     while True:
         isin = input("\n\nPlease Enter an ISIN: ")

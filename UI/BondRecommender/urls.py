@@ -16,10 +16,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from BondRecommender import views
+#from django.conf.urls import url, static
+#from BondRecommender import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name="home"),
     path('results', views.results, name="results"),
+    path('results/graph', views.view_graph, name="graphs"),
     path('results/charts/view_plot_oas.png', views.view_plot_oas, name="charts")
 ]
+
+#urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
