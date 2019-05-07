@@ -4,7 +4,7 @@
 {#        <form action="{% url 'home' %}" method="get">#}
 {#            <input name="home" value="Home" type="submit">#}
 {#        </form>#}
-        <h3>Searching for bonds that are similar to {{ sec_id }}, which characteristics is as follows</h3>
+        <h3>Searching for bonds that are similar to {{ sec_id }}:</h3>
         <table class="table table-striped">
         <thead>
             <tr>
@@ -28,26 +28,35 @@
             {% endfor %}
         </tbody>
         </table><br>
-        <h3>The List of Similar Bonds for {{ sec_id }} is:</h3>
+        <h3>The bonds most similar to {{ sec_id }} are:</h3>
         <table class="table table-striped">
         <thead>
             <tr>
                 {% for d in display_columns %}
                     <th> {{ d }} </th>
+                    {% if forloop.last %}
+                        <th>Feedback</th>
+                    {% endif %}
                 {% endfor %}
             </tr>
         </thead>
         <tbody>
+            {% load app_filters %}
             {% for s in similar_bonds_table %}
-                <tr>
-                    {% for ss in s %}
-                        {% if ss == s.0 %}
-                            <td><a href="javascript:drawGraph('{{ ss }}')">{{ ss }}</a></td>
-                        {% else %}
-                            <td> {{ ss }} </td>
-                        {% endif %}
-                    {% endfor %}
-                </tr>
+                {% with previous_bond=similar_bonds_table|previous:forloop.counter0 %}
+                    <tr>
+                        {% for ss in s %}
+                            {% if ss == s.0 %}
+                                <td><a href="javascript:drawGraph('{{ ss }}')">{{ ss }}</a></td>
+                            {% else %}
+                                <td> {{ ss }} </td>
+                            {% endif %}
+                            {% if forloop.last and previous_bond %}
+                                <td><a href="feedback?bond={{ sec_id }}&better={{ s.0 }}&worse={{ previous_bond.0 }}">Up</a></td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                {% endwith %}
             {% endfor %}
         </tbody>
         </table>
