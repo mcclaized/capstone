@@ -1,10 +1,45 @@
+import os
+import json
+
+from functools import lru_cache
+from urllib.parse import urlencode
+from django.http import HttpResponse
+from django.shortcuts import render, redirect
+from django.urls import reverse
+
 from BondRecommender.models import Securities, vanguard_merge
 from BondRecommender.data_loader import SingleDayDataLoader
 from BondRecommender.data_loader import MultipleDayDataLoader
 from BondRecommender.recommendation_models import similar_bonds_pipeline
 from BondRecommender.prediction_models import predict_rc
-from django.http import HttpResponse
-from django.shortcuts import render
+from BondRecommender.bpr_model import BPRModel, ModelHelper
+
+# Load once and cache for efficiency
+
+@lru_cache(maxsize=16)
+def get_single_day_data(*args, **kwargs):
+    return SingleDayDataLoader(*args, **kwargs)
+
+@lru_cache(maxsize=16)
+def get_multi_day_data(*args, **kwargs):
+    return MultipleDayDataLoader(*args, **kwargs)
+
+@lru_cache(maxsize=16)
+def get_bpr_model_helper():
+    num_factors = 32
+    
+    isin_to_index_mapping_file = os.path.join(os.path.dirname(__file__), 'isin_to_index2.json')
+    isin_to_index_mapping = json.load(open(isin_to_index_mapping_file))
+    num_bonds = len(isin_to_index_mapping)
+    
+    model = BPRModel(num_bonds, num_factors)
+    model_helper = ModelHelper(model, isin_to_index_mapping, get_single_day_data())
+    
+    weights_file = os.path.join(os.path.dirname(__file__), 'bpr_v2.pt')
+    model_helper.load(weights_file)
+
+    return model_helper 
+
 
 # Create your views here.
 def home(request):
@@ -12,20 +47,18 @@ def home(request):
     return render(request, 'home.html', context)
 
 def results(request):
-    # Load once in the pre-forked server process for efficiency
-    single_day_data = SingleDayDataLoader()
 
     context = dict()
     sec_id = str(request.GET['sec_id'])
     context['sec_id'] = sec_id
     context['sec_id_error'] = 0
-    numofdays = int(request.GET['num_of_days'])
-    numofrecomm = int(request.GET['num_of_recommendation'])
-    cohort_filtering = str(request.GET['cohort_filtering'])
-    ytm_upper = str(request.GET['ytm_upper'])
-    ytm_lower = str(request.GET['ytm_lower'])
-    oad_upper = str(request.GET['oad_upper'])
-    oad_lower = str(request.GET['oad_lower'])
+    numofdays = int(request.GET.get('num_of_days', 30))
+    numofrecomm = int(request.GET.get('num_of_recommendation', 10))
+    cohort_filtering = str(request.GET.get('cohort_filtering', 'Yes'))
+    ytm_upper = str(request.GET.get('ytm_upper', ''))
+    ytm_lower = str(request.GET.get('ytm_lower', ''))
+    oad_upper = str(request.GET.get('oad_upper', ''))
+    oad_lower = str(request.GET.get('oad_lower', ''))
 
     try:
         ## COLUMNS WHOSE VALUES MUST BE THE SAME IN ORDER TO BE CONSIDERED SIMILAR
@@ -41,7 +74,7 @@ def results(request):
         display_columns = ['ISIN', 'Ticker', 'BCLASS3', 'Country'] + (features or []) + ['Yield to Mat', 'Cpn', 'Px Close']
         #context['display_columns'] = display_columns
 
-        bond = single_day_data.get_bond(sec_id)
+        bond = get_single_day_data().get_bond(sec_id)
 
         filter_conditions = {'Yield to Mat': (ytm_lower, ytm_upper), 'OAD': (oad_lower, oad_upper)}
 
@@ -49,19 +82,19 @@ def results(request):
         bond_table = bond[display_columns]
         context['bond_table'] = bond_table.values.tolist()
 
-        similar_bonds = get_similar_bonds(sec_id, single_day_data, numofrecomm+1, filter_conditions, features=features, cohort_attributes=cohort_attributes)
-        similar_bonds = similar_bonds.reset_index()
-        similar_bonds_table = similar_bonds[display_columns].values.tolist()
-        #context['similar_bonds_table'] = similar_bonds_table
+        model_helper = get_bpr_model_helper()
 
-        multi_data_loader = MultipleDayDataLoader(numdays=numofdays)
-        bond = multi_data_loader.get_bond(sec_id)
+        similar_bonds = model_helper.predict(sec_id)
+        similar_bonds = model_helper.display(similar_bonds, display_cols=display_columns).reset_index()
+        similar_bonds_table = similar_bonds.values.tolist()
+
+        bond = get_multi_day_data(numdays=numofdays).get_bond(sec_id)
         context['bond_dates'] = '|'.join(bond["date"].values)
         context['bond_OAS'] = '|'.join(list(map(str, bond["OAS"].values)))
 
         ### JPM
         isins = similar_bonds.ISIN.unique()
-        prediction_result = predict_rc(multi_data_loader, date=None, isins=isins)
+        prediction_result = predict_rc(get_multi_day_data(), date=None, isins=isins)
         result = similar_bonds.merge(prediction_result, on="ISIN", how ="outer")
         display_columns = display_columns + ["rich/cheap"]
         result_table = result[display_columns].values.tolist()
@@ -88,9 +121,37 @@ def results(request):
 
         return render(request, 'results.html', context)
 
-    except KeyError:
+    except KeyError as e:
+        import traceback
+        print(traceback.print_exc())
         context['sec_id_error'] = 1
         return render(request, 'home.html', context)
+
+
+def feedback(request):
+    """
+    Update the model with feedback from the user, and refresh the predictions
+    :param request:     The RequestContext, expected to have three attributes of the GET request
+                            bond:   The ISIN of the bond we are finding bonds similar to
+                            better: The ISIN of a bond that is a better recommendation than its current rank
+                            worse:  The ISIN of a bond that is a worse recommendation than its current rank
+    """
+
+    bond = request.GET['bond']
+    better = request.GET['better']
+    worse = request.GET['worse']
+
+    feedback = [(bond, better, worse)]
+    get_bpr_model_helper().process_feedback(feedback)
+    # TODO add support for persisting the feedback and/or the model
+    # model_helper.save('models/bpr_v3.pt')
+
+    base_url = reverse('results')
+    query_string = urlencode({'sec_id': bond})
+    url = "{}?{}".format(base_url, query_string)
+
+    return redirect(url)
+
 
 def get_similar_bonds(isin, single_day_data, num_of_bonds, filter_conditions, features=None, cohort_attributes=None):
     """
@@ -104,14 +165,14 @@ def get_similar_bonds(isin, single_day_data, num_of_bonds, filter_conditions, fe
     """
 
     # ISIN to Pandas Series of data for that bond
-    bond = single_day_data.get_bond(isin)
+    bond = get_single_day_data().get_bond(isin)
 
     # Pandas Series to Pandas DataFrame of data for all bonds in the specified cohort
     if cohort_attributes is None:
         cohort_attributes = []
-        bond_cohort = single_day_data.data
+        bond_cohort = get_single_day_data().data
     else:
-        bond_cohort = single_day_data.get_cohort(bond, attributes=cohort_attributes)
+        bond_cohort = get_single_day_data().get_cohort(bond, attributes=cohort_attributes)
 
     ytm_lower = filter_conditions['Yield to Mat'][0]
     ytm_upper = filter_conditions['Yield to Mat'][1]
@@ -152,7 +213,7 @@ def get_similar_bonds(isin, single_day_data, num_of_bonds, filter_conditions, fe
     # Exclude the input isin from the list of similar bonds
     similar_bond_isins = [i for i in similar_bond_isins if i != isin]
 
-    similar_bonds = single_day_data.get_bonds(similar_bond_isins)
+    similar_bonds = get_single_day_data().get_bonds(similar_bond_isins)
 
     return similar_bonds
 
@@ -162,11 +223,10 @@ def view_plot_oas(request):
     import matplotlib.pyplot as plt
     import io
 
-    multi_data_loader = MultipleDayDataLoader()
     isin = 'US06406RAC16'
     isin2 = 'US857477AZ63'
-    bond = multi_data_loader.get_bond(isin)
-    bond2 = multi_data_loader.get_bond(isin2)
+    bond = get_multi_day_data().get_bond(isin)
+    bond2 = get_multi_day_data().get_bond(isin2)
 
     fig = plt.figure(figsize=(5, 5))
     ax1 = fig.add_subplot(1, 1, 1)
@@ -190,12 +250,11 @@ def view_graph(request):
     context['sec_id'] = sec_id
     numofdays = 30#int(request.GET['num_of_days'])
 
-    multi_data_loader = MultipleDayDataLoader(numdays=numofdays)
-    bond = multi_data_loader.get_bond(sec_id)
+    bond = get_multi_day_data(numdays=numofdays).get_bond(sec_id)
     context['bond_dates'] = '|'.join(bond["date"].values)
     context['bond_OAS'] = '|'.join(list(map(str, bond["OAS"].values)))
 
-    bond2 = multi_data_loader.get_bond('US857477AZ63')
+    bond2 = get_multi_day_data().get_bond('US857477AZ63')
     context['bond_dates2'] = '|'.join(bond2["date"].values)
     context['bond_OAS2'] = '|'.join(list(map(str, bond2["OAS"].values)))
 

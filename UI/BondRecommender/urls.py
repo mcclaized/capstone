@@ -24,7 +24,8 @@ urlpatterns = [
     path('', views.home, name="home"),
     path('results', views.results, name="results"),
     path('results/graph', views.view_graph, name="graphs"),
-    path('results/charts/view_plot_oas.png', views.view_plot_oas, name="charts")
+    path('results/charts/view_plot_oas.png', views.view_plot_oas, name="charts"),
+    path('feedback', views.feedback, name="feedback"),
 ]
 
 #urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

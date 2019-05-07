@@ -40,8 +40,7 @@ def evaluate_criterion(premiums, date):
 
 def predict_rc(multiple_day_data, date, isins):
 
-    last30 = multiple_day_data.data
-    last30.reset_index(inplace=True)
+    last30 = multiple_day_data.data.reset_index()
 
     if date is None:
         date = max(last30["date"].unique())
