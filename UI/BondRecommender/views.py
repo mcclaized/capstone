@@ -1,28 +1,18 @@
 import os
 import json
-
 from functools import lru_cache
 from urllib.parse import urlencode
+
+import pandas as pd
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 
 from BondRecommender.models import Securities, vanguard_merge
-from BondRecommender.data_loader import SingleDayDataLoader
-from BondRecommender.data_loader import MultipleDayDataLoader
+from BondRecommender.data_loader import get_single_day_data, get_multi_day_data
 from BondRecommender.recommendation_models import similar_bonds_pipeline
-from BondRecommender.prediction_models import predict_rc
+from BondRecommender.prediction_models import predict_single_rc
 from BondRecommender.bpr_model import BPRModel, ModelHelper
-
-# Load once and cache for efficiency
-
-@lru_cache(maxsize=16)
-def get_single_day_data(*args, **kwargs):
-    return SingleDayDataLoader(*args, **kwargs)
-
-@lru_cache(maxsize=16)
-def get_multi_day_data(*args, **kwargs):
-    return MultipleDayDataLoader(*args, **kwargs)
 
 @lru_cache(maxsize=16)
 def get_bpr_model_helper():
@@ -94,7 +84,7 @@ def results(request):
 
         ### JPM
         isins = similar_bonds.ISIN.unique()
-        prediction_result = predict_rc(get_multi_day_data(), date=None, isins=isins)
+        prediction_result = pd.concat([predict_single_rc(date=None, isin=isin) for isin in isins])
         result = similar_bonds.merge(prediction_result, on="ISIN", how ="outer")
         display_columns = display_columns + ["rich/cheap"]
         result_table = result[display_columns].values.tolist()
@@ -218,7 +208,6 @@ def get_similar_bonds(isin, single_day_data, num_of_bonds, filter_conditions, fe
     return similar_bonds
 
 def view_plot_oas(request):
-    from BondRecommender.data_loader import MultipleDayDataLoader
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
     import matplotlib.pyplot as plt
     import io

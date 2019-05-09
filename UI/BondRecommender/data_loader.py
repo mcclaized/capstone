@@ -1,6 +1,8 @@
 import os
-import pandas as pd
 import datetime
+from functools import lru_cache
+
+import pandas as pd
 
 DATA_DIR=os.getenv(
     'DATA_DIR', 
@@ -114,3 +116,14 @@ class MultipleDayDataLoader(object):
             else:
                 cohort_conditions = cohort_conditions & condition
         return self.data.loc[cohort_conditions]
+
+# Load once and cache for efficiency
+
+@lru_cache(maxsize=16)
+def get_single_day_data(*args, **kwargs):
+    return SingleDayDataLoader(*args, **kwargs)
+
+@lru_cache(maxsize=16)
+def get_multi_day_data(*args, **kwargs):
+    return MultipleDayDataLoader(*args, **kwargs)
+

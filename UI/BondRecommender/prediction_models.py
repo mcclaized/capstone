@@ -1,8 +1,12 @@
+import warnings
+from functools import lru_cache
+
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from BondRecommender.data_loader import MultipleDayDataLoader
-import warnings
+
+from BondRecommender.data_loader import get_single_day_data, get_multi_day_data
+
 warnings.filterwarnings("ignore")
 
 # ----------------------------- Functions -------------------------------
@@ -151,3 +155,13 @@ def predict_rc(multiple_day_data, date, isins):
     bonds.rename(columns={'score': 'rich/cheap'}, inplace=True)
 
     return bonds
+
+
+@lru_cache(maxsize=1000)
+def predict_single_rc(date, isin):
+    # Since lru_cache doesn't work with list inputs (they're not hashable), 
+    # we add a new function with cacheable inputs that wraps predict_rc 
+    # Note: calling this function many times in a row is slower than calling predict_rc with a batch
+    isins = [isin]
+    return predict_rc(get_multi_day_data(), date=date, isins=isins)
+
